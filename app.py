@@ -35,7 +35,7 @@ def detect_3d_file_type(file_path):
                 tri_count = struct.unpack('<I', tri_count_bytes)[0]
                 expected_size = 84 + tri_count * 50
                 if filesize == expected_size:
-                    return 'STL (Binary)'
+                    return 'STL'
 
     # OBJ check
     try:

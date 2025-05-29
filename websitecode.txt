@@ -1,0 +1,89 @@
+<style>
+  #dropZone {
+    border: 2px dashed #ccc;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    color: #666;
+    font-family: Arial, sans-serif;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+
+  #dropZone.hover {
+    background-color: #f0f8ff;
+  }
+
+  #result {
+    margin-top: 15px;
+    font-weight: bold;
+  }
+</style>
+
+<h3>Upload jouw 3D-bestand</h3>
+
+<div id="dropZone">
+  Sleep een bestand hierheen of klik om te selecteren
+  <input type="file" id="fileInput" style="display: none" />
+</div>
+
+<p id="result"></p>
+
+<script>
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("fileInput");
+
+  // Klik op dropzone opent file chooser
+  dropZone.addEventListener("click", () => fileInput.click());
+
+  // Bestand handmatig gekozen
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) {
+      handleFile(fileInput.files[0]);
+    }
+  });
+
+  // Drag over
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("hover");
+  });
+
+  // Drag leave
+  dropZone.addEventListener("dragleave", () => {
+    dropZone.classList.remove("hover");
+  });
+
+  // Drop bestand
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("hover");
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      handleFile(file);
+    }
+  });
+
+  async function handleFile(file) {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    document.getElementById("result").innerText = "Bezig met analyseren...";
+
+    try {
+      const response = await fetch("https://threed-website-idee.onrender.com/analyse", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await response.json();
+      document.getElementById("result").innerText =
+        data.bestandstype
+          ? "Bestandstype: " + data.bestandstype
+          : "Fout: " + data.fout;
+    } catch (err) {
+      console.error("Uploadfout:", err);
+      document.getElementById("result").innerText = "Upload mislukt.";
+    }
+  }
+</script>
