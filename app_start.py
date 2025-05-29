@@ -1,15 +1,15 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import zipfile
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 
-def detect_3d_file_type(file):
-    header = file.read(1024)
-    file.seek(0)
+def detect_3d_file_type(file_path):
+    with open(file_path, 'rb') as f:
+        header = f.read(1024)
 
-    if zipfile.is_zipfile(file):
-        file.seek(0)
-        with zipfile.ZipFile(file, 'r') as z:
+    if zipfile.is_zipfile(file_path):
+        with zipfile.ZipFile(file_path, 'r') as z:
             if '3D/3dmodel.model' in z.namelist():
                 return '3MF'
 
@@ -18,7 +18,7 @@ def detect_3d_file_type(file):
             text = header.decode('utf-8')
             if 'facet normal' in text:
                 return 'STL (ASCII)'
-        except:
+        except UnicodeDecodeError:
             pass
     elif len(header) >= 84:
         return 'STL (Binary)'
@@ -27,26 +27,34 @@ def detect_3d_file_type(file):
         text = header.decode('utf-8')
         if any(line.startswith(('v ', 'vt ', 'vn ', 'f ')) for line in text.splitlines()):
             return 'OBJ'
-    except:
+    except UnicodeDecodeError:
         pass
 
     try:
         text = header.decode('utf-8')
         if '<amf' in text.lower():
             return 'AMF'
-    except:
+    except UnicodeDecodeError:
         pass
 
-    return 'Onbekend'
+    return 'Onbekend of niet-ondersteund bestandstype'
 
-@app.route('/analyse', methods=['POST'])
-def analyse_file():
+@app.route('/detect', methods=['POST'])
+def detect_file_type():
     if 'file' not in request.files:
         return jsonify({'error': 'Geen bestand ontvangen'}), 400
 
     file = request.files['file']
-    result = detect_3d_file_type(file)
+    filepath = f'/tmp/{file.filename}'
+    file.save(filepath)
+
+    result = detect_3d_file_type(filepath)
+    os.remove(filepath)  # schoonmaken
     return jsonify({'bestandstype': result})
 
+@app.route('/')
+def serve_index():
+    return app.send_static_file('index.html')
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='https://threed-website-idee.onrender.com', port=5000)
