@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import zipfile
+import os
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 
 def detect_3d_file_type(file_path):
     with open(file_path, 'rb') as f:
@@ -48,7 +49,12 @@ def detect_file_type():
     file.save(filepath)
 
     result = detect_3d_file_type(filepath)
+    os.remove(filepath)  # schoonmaken
     return jsonify({'bestandstype': result})
 
+@app.route('/')
+def serve_index():
+    return app.send_static_file('index.html')
+
 if __name__ == '__main__':
-    app.run()
+    app.run(host='https://threed-website-idee.onrender.com', port=5000)
