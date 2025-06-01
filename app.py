@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import zipfile
 import os
+import trimesh
 
 app = Flask(__name__)
 CORS(app)  # Sta requests toe vanaf externe websites zoals Shopify
@@ -56,6 +57,24 @@ def detect_3d_file_type(file_path):
 
     return 'Onbekend of niet-ondersteund bestandstype'
 
+def schat_materiaal_en_tijd(pad, infill=0.2, dichtheid=1.24, snelheid_cm3_per_min=0.2):
+    try:
+        mesh = trimesh.load(pad)
+        volume_mm3 = mesh.volume
+        volume_cm3 = volume_mm3 / 1000  # van mm³ naar cm³
+
+        effectief_volume = volume_cm3 * infill
+        gewicht_gram = effectief_volume * dichtheid
+        tijd_minuten = effectief_volume / snelheid_cm3_per_min
+
+        return {
+            'volume_cm3': round(volume_cm3, 2),
+            'gewicht_gram': round(gewicht_gram, 2),
+            'geschatte_printtijd_min': round(tijd_minuten)
+        }
+    except Exception as e:
+        return {'fout': f'Fout bij analyse: {str(e)}'}
+
 @app.route('/analyse', methods=['POST'])
 def analyse():
     if 'file' not in request.files:
@@ -68,7 +87,20 @@ def analyse():
     bestand.save('tempfile')
     bestandstype = detect_3d_file_type('tempfile')
     print(f"Bestandstype gedetecteerd: {bestandstype}")
-    return jsonify({'bestandstype': bestandstype})
+
+    resultaat = {'bestandstype': bestandstype}
+
+    if bestandstype in ['STL', 'STL (ASCII)', 'OBJ']:
+        extra = schat_materiaal_en_tijd('tempfile')
+        resultaat.update(extra)
+
+    # Verwijder tijdelijk bestand
+    try:
+        os.remove('tempfile')
+    except:
+        pass
+
+    return jsonify(resultaat)
 
 if __name__ == '__main__':
     app.run(debug=True)
